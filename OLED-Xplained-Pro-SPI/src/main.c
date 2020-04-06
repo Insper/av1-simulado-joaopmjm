@@ -41,6 +41,8 @@
 /* Variaveis */
 
 volatile char flag_tc_led3 = 0;
+volatile char flag_tc_led2 = 0;
+volatile char flag_tc_led1 = 0;
 volatile Bool flag_rtt_led2 = false;
 volatile char but1_flag;
 volatile char but2_flag;
@@ -76,7 +78,7 @@ void RTT_Handler(void)
 	}
 }
 
-void TC_Handler(void){
+void TC1_Handler(void){
 	volatile uint32_t ul_dummy;
 
 	/****************************************************************
@@ -88,9 +90,37 @@ void TC_Handler(void){
 	UNUSED(ul_dummy);
 
 	/** Muda o estado do LED */
-	flag_tc_led3 = 1;
+	flag_tc_led1 = 1;
 }
 
+void TC2_Handler(void){
+	volatile uint32_t ul_dummy;
+
+	/****************************************************************
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	******************************************************************/
+	ul_dummy = tc_get_status(TC1,9);
+
+	/* Avoid compiler warning */
+	UNUSED(ul_dummy);
+
+	/** Muda o estado do LED */
+	flag_tc_led2 = 1;
+}
+void TC3_Handler(void){
+	volatile uint32_t ul_dummy;
+
+	/****************************************************************
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	******************************************************************/
+	ul_dummy = tc_get_status(TC2,8);
+
+	/* Avoid compiler warning */
+	UNUSED(ul_dummy);
+
+	/** Muda o estado do LED */
+	flag_tc_led3 = 1;
+}
 /* Callbacks */
 
 void but1_callback(void){
@@ -156,18 +186,15 @@ static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
 }
 
 void init(void){
-	sysclk_init();
-	
-	WDT->WDT_MR=WDT_MR_WDDIS;
 	// Ativa o PIO na qual o LED foi conectado
 	// para que possamos controlar o LED.
 	pmc_enable_periph_clk(LED1_PIO_ID);
 	pmc_enable_periph_clk(LED2_PIO_ID);
 	pmc_enable_periph_clk(LED3_PIO_ID);
 	
-	pio_configure(LED1_PIO, PIO_OUTPUT_0, LED1_PIO_IDX_MASK, PIO_DEFAULT);
-	pio_configure(LED2_PIO, PIO_OUTPUT_0, LED2_PIO_IDX_MASK, PIO_DEFAULT);
-	pio_configure(LED3_PIO, PIO_OUTPUT_0, LED3_PIO_IDX_MASK, PIO_DEFAULT);
+	pio_configure(LED1_PIO, PIO_OUTPUT_1, LED1_PIO_IDX_MASK, PIO_DEFAULT);
+	pio_configure(LED2_PIO, PIO_OUTPUT_1, LED2_PIO_IDX_MASK, PIO_DEFAULT);
+	pio_configure(LED3_PIO, PIO_OUTPUT_1, LED3_PIO_IDX_MASK, PIO_DEFAULT);
 		
 	// Inicializa PIO do botao
 	pmc_enable_periph_clk(BUT1_PIO_ID);
@@ -217,30 +244,37 @@ int main (void)
 	delay_init();
 	init();
 	
+	WDT->WDT_MR=WDT_MR_WDDIS;
+	
 	// Inicializar TC
-	TC_init(TC0, ID_TC1, 1, 4);
+	TC_init(TC1, ID_TC3, 3, 10);
+	
+	TC_init(TC0, ID_TC1, 1, 5);
+	
+	TC_init(TC2, ID_TC8, 8, 1);
+	
+	flag_rtt_led2 = true;
 
   // Init OLED
 	gfx_mono_ssd1306_init();
   
   // Escreve na tela um circulo e um texto
-	gfx_mono_draw_filled_circle(20, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
-  gfx_mono_draw_string("mundo", 50,16, &sysfont);
+	gfx_mono_draw_string("mundo", 50,16, &sysfont);
 
   /* Insert application code here, after the board has been initialized. */
 	while(1) {
+		if(flag_tc_led2){
+			pisca_led(LED2_PIO,LED2_PIO_IDX_MASK,1,10);
+			flag_tc_led2 = 0;
+		}
+		if(flag_tc_led1){
+			pisca_led(LED1_PIO,LED1_PIO_IDX_MASK,1,10);
+			flag_tc_led1 = 0;
+		}
 		if(flag_tc_led3){
-			pisca_led(LED3_PIO,LED3_PIO_IDX_MASK,1,50);
+			pisca_led(LED3_PIO,LED3_PIO_IDX_MASK,1,10);
 			flag_tc_led3 = 0;
 		}
-		if (flag_rtt_led2){
-			uint16_t pllPreScale = (int) (((float) 32768) / 20.0);
-			uint32_t irqRTTvalue = 2;
-			
-			// reinicia RTT para gerar um novo IRQ
-			RTT_init(pllPreScale, irqRTTvalue);
-			
-			flag_rtt_led2 = false;
-		}
+		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 	}
 }
