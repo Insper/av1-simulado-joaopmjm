@@ -93,16 +93,16 @@ void TC_Handler(void){
 
 /* Callbacks */
 
-void but1_callback(){
-	
+void but1_callback(void){
+	but1_flag=1;
 }
 
-void but2_callback(){
-	
+void but2_callback(void){
+	but2_flag=1;
 }
 
-void but3_callback(){
-	
+void but3_callback(void){
+	but3_flag=1;
 }
 /* INITs*/
 
@@ -215,6 +215,10 @@ int main (void)
 	board_init();
 	sysclk_init();
 	delay_init();
+	init();
+	
+	// Inicializar TC
+	TC_init(TC0, ID_TC1, 1, 4);
 
   // Init OLED
 	gfx_mono_ssd1306_init();
@@ -225,6 +229,18 @@ int main (void)
 
   /* Insert application code here, after the board has been initialized. */
 	while(1) {
-
+		if(flag_tc_led3){
+			pisca_led(LED3_PIO,LED3_PIO_IDX_MASK,1,50);
+			flag_tc_led3 = 0;
+		}
+		if (flag_rtt_led2){
+			uint16_t pllPreScale = (int) (((float) 32768) / 20.0);
+			uint32_t irqRTTvalue = 2;
+			
+			// reinicia RTT para gerar um novo IRQ
+			RTT_init(pllPreScale, irqRTTvalue);
+			
+			flag_rtt_led2 = false;
+		}
 	}
 }
