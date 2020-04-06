@@ -24,17 +24,17 @@
 /* Declarando os Botões */
 
 #define BUT1_PIO			PIOD
-#define BUT1_PIO_ID			16
+#define BUT1_PIO_ID			ID_PIOD
 #define BUT1_PIO_IDX		28
 #define BUT1_PIO_IDX_MASK	(1u << BUT1_PIO_IDX)
 
 #define BUT3_PIO			PIOA
-#define BUT3_PIO_ID			10
+#define BUT3_PIO_ID			ID_PIOA
 #define BUT3_PIO_IDX		19
 #define BUT3_PIO_IDX_MASK	(1u << BUT3_PIO_IDX)
 
 #define BUT2_PIO			PIOC
-#define BUT2_PIO_ID			12
+#define BUT2_PIO_ID			ID_PIOC
 #define BUT2_PIO_IDX		31
 #define BUT2_PIO_IDX_MASK	(1u << BUT2_PIO_IDX)
 
@@ -58,6 +58,14 @@ void pisca_led(Pio *p_pio, uint32_t mask,int n, int t){
 		delay_ms(t);
 	}
 }
+
+void pin_toggle(Pio *pio, uint32_t mask){
+	if(pio_get_output_data_status(pio, mask))
+	pio_clear(pio, mask);
+	else
+	pio_set(pio,mask);
+}
+
 
 /* Handlers */
 
@@ -93,13 +101,13 @@ void TC1_Handler(void){
 	flag_tc_led1 = 1;
 }
 
-void TC2_Handler(void){
+void TC4_Handler(void){
 	volatile uint32_t ul_dummy;
 
 	/****************************************************************
 	* Devemos indicar ao TC que a interrupção foi satisfeita.
 	******************************************************************/
-	ul_dummy = tc_get_status(TC1,9);
+	ul_dummy = tc_get_status(TC1,1);
 
 	/* Avoid compiler warning */
 	UNUSED(ul_dummy);
@@ -107,13 +115,13 @@ void TC2_Handler(void){
 	/** Muda o estado do LED */
 	flag_tc_led2 = 1;
 }
-void TC3_Handler(void){
+void TC7_Handler(void){
 	volatile uint32_t ul_dummy;
 
 	/****************************************************************
 	* Devemos indicar ao TC que a interrupção foi satisfeita.
 	******************************************************************/
-	ul_dummy = tc_get_status(TC2,8);
+	ul_dummy = tc_get_status(TC2,1);
 
 	/* Avoid compiler warning */
 	UNUSED(ul_dummy);
@@ -134,6 +142,7 @@ void but2_callback(void){
 void but3_callback(void){
 	but3_flag=1;
 }
+
 /* INITs*/
 
 void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
@@ -247,11 +256,11 @@ int main (void)
 	WDT->WDT_MR=WDT_MR_WDDIS;
 	
 	// Inicializar TC
-	TC_init(TC1, ID_TC3, 3, 10);
-	
 	TC_init(TC0, ID_TC1, 1, 5);
 	
-	TC_init(TC2, ID_TC8, 8, 1);
+	TC_init(TC1, ID_TC4, 1, 10);
+	
+	TC_init(TC2, ID_TC7, 1, 1);
 	
 	flag_rtt_led2 = true;
 
@@ -263,16 +272,16 @@ int main (void)
 
   /* Insert application code here, after the board has been initialized. */
 	while(1) {
-		if(flag_tc_led2){
-			pisca_led(LED2_PIO,LED2_PIO_IDX_MASK,1,10);
-			flag_tc_led2 = 0;
-		}
 		if(flag_tc_led1){
-			pisca_led(LED1_PIO,LED1_PIO_IDX_MASK,1,10);
+			pin_toggle(LED1_PIO,LED1_PIO_IDX_MASK);
 			flag_tc_led1 = 0;
 		}
+		if(flag_tc_led2){
+			pin_toggle(LED2_PIO,LED2_PIO_IDX_MASK);
+			flag_tc_led2 = 0;
+		}
 		if(flag_tc_led3){
-			pisca_led(LED3_PIO,LED3_PIO_IDX_MASK,1,10);
+			pin_toggle(LED3_PIO,LED3_PIO_IDX_MASK);
 			flag_tc_led3 = 0;
 		}
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
